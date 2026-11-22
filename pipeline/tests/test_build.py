@@ -89,7 +89,7 @@ def test_merge_nobroker_by_name_tokens_within_400m():
     other = {"name": "Prime City", "lng": 77.6500, "lat": 12.8410}
     projects = [near, other]
     listings = [nb_listing("Ittina Mahavir", 77.6485, 12.8404),
-                nb_listing("Ittina Mahavir", 77.6600, 12.8402),
+                nb_listing("Ittina Mahavir", 77.6800, 12.8402),
                 nb_listing("Sai Nilayam", 77.6483, 12.8402),
                 nb_listing(None, 77.6483, 12.8402),
                 nb_listing("Ittina Mahavir", 77.6483, 12.8402, bhk=None)]
@@ -103,3 +103,10 @@ def test_merge_nobroker_prefers_more_shared_tokens():
     b = {"name": "Parkway Villas", "lng": 77.6601, "lat": 12.85}
     build_city.merge_nobroker([a, b], [nb_listing("SJR Parkway Homes", 77.6601, 12.8501)])
     assert a.get("rent_listings") and not b.get("rent_listings")
+
+
+def test_merge_nobroker_same_name_spaces_ignored_up_to_2km():
+    p = {"name": "Kolte Patil I Towers Exente", "lng": 77.66, "lat": 12.85}
+    far = {"name": "Godrej Nurture", "lng": 77.66, "lat": 12.80}
+    listings = [nb_listing("Kolte Patil Itowers Exente", 77.66, 12.8640), nb_listing("Godrej Nurture", 77.66, 12.8290)]
+    assert build_city.merge_nobroker([p, far], listings) == (1, 1)

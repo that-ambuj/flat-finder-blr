@@ -66,15 +66,15 @@ def in_bbox(listing, bbox):
 
 
 def crawl_locality(locality, nb_city, seen):
-    """Walk pageNo until a page is empty or adds no new listing. Returns the new listings."""
+    """Walk pageNo until a page is empty. Returns the listings not seen before."""
     found, page, pages = [], 1, None
     while page <= min(pages or MAX_PAGES, MAX_PAGES):
         html = fetch(search_url(locality, nb_city, page))
-        got, total = nb_parse.listings(html) if html else ([], 0)
+        records, total = nb_parse.list_page(html) if html else ([], 0)
         pages = pages or -(-total // PER_PAGE)
-        fresh = [l for l in got if l["id"] not in seen]
-        if not fresh:
+        if not records:
             break
+        fresh = [l for l in map(nb_parse.to_listing, records) if l and l["id"] not in seen]
         seen.update(l["id"] for l in fresh)
         found.extend(fresh)
         page += 1

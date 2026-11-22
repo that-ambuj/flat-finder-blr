@@ -131,15 +131,27 @@ def dedupe(projects):
     return kept
 
 
+def squash(name):
+    return "".join(re.findall(r"[a-z0-9]+", (name or "").lower()))
+
+
 def match_listing(listing, grid):
-    """Project for a NoBroker listing: one name's tokens all inside the other's, within 400 m; most shared tokens, then nearest."""
+    """Project for a NoBroker listing: one name's tokens all inside the other's within 400 m,
+    or the same name, spaces ignored, within 2 km. Exact name first, then most shared tokens, then nearest."""
     want = tokens(listing.get("building"))
     if not want:
         return None
-    pt = (listing["lng"], listing["lat"])
-    scored = [(len(want & tokens(p["name"])), -geo.dist_m(pt, (p["lng"], p["lat"])), i, p) for i, p in enumerate(grid.near(pt))]
-    fits = [c for c in scored if c[0] and c[0] == min(len(want), len(tokens(c[3]["name"]))) and c[1] > -400]
-    return max(fits, key=lambda c: c[:3])[3] if fits else None
+    pt, same = (listing["lng"], listing["lat"]), squash(listing["building"])
+
+    def score(p):
+        d, shared = geo.dist_m(pt, (p["lng"], p["lat"])), len(want & tokens(p["name"]))
+        exact = squash(p["name"]) == same
+        subset = shared and shared == min(len(want), len(tokens(p["name"])))
+        return (exact, shared, -d) if (exact and d < 2000) or (subset and d < 400) else None
+
+    # Owners drop their own map pin. Pins of one building can be 2 km apart.
+    scored = [(sc, i, p) for i, p in enumerate(grid.near(pt, r=2)) if (sc := score(p))]
+    return max(scored, key=lambda c: c[:2])[2] if scored else None
 
 
 def merge_nobroker(projects, listings):
