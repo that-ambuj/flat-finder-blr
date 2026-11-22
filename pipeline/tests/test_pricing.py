@@ -55,3 +55,11 @@ def test_luxury_price_backed_by_builder_range_is_not_flagged():
     lux["price_min"], lux["price_max"] = 2e8, 4e8
     socs.append(lux)
     assert pricing.flag_outliers(socs) == 0
+
+
+def test_listing_stats_counts_sources_only_when_mixed():
+    mb = {"bhk": 2, "price": 20000, "by": "agent"}
+    nb = {"bhk": 2, "price": 24000, "by": "owner", "source": "NoBroker"}
+    assert "sources" not in pricing.listing_stats({"rent_listings": [mb]})[2]["rent"]
+    rent = pricing.listing_stats({"rent_listings": [mb, nb]})[2]["rent"]
+    assert rent["sources"] == {"Magicbricks": 1, "NoBroker": 1} and rent["owner"]["n"] == 1
