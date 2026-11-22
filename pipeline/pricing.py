@@ -11,7 +11,7 @@ not used for matching, sorting or estimates.
 """
 import math
 import statistics
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 MIN_LOCALITY_PAIRS = 4
 FAR = 8          # a median this many times above or below the typical value is flagged (4x still hit real luxury and affordable homes)
@@ -35,7 +35,9 @@ def listing_stats(project):
                 by[l["bhk"]].append(l)
         for bhk, ls in by.items():
             owner = stats(l["price"] for l in ls if l.get("by") == "owner")
-            out[bhk][kind] = {**stats(l["price"] for l in ls), **({"owner": owner} if owner else {})}
+            sources = Counter(l.get("source") or "Magicbricks" for l in ls)
+            out[bhk][kind] = {**stats(l["price"] for l in ls), **({"owner": owner} if owner else {}),
+                              **({"sources": dict(sources)} if set(sources) != {"Magicbricks"} else {})}
             if kind == "buy":
                 psf = [l["psf"] for l in ls if l.get("psf")]
                 if psf:
