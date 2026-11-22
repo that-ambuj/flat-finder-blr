@@ -4,7 +4,7 @@ import { readFile, realpath } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { DEFAULT_CRITERIA, feetLabel, formatINR, matchSociety, priceFor } from '../web/src/filters.js';
 
-const SITE = 'https://flat-finder.pages.dev';
+const SITE = process.env.FLAT_FINDER_SITE || 'https://flat-finder.pages.dev';
 
 const HELP = `flatfinder: find housing societies that fit
 

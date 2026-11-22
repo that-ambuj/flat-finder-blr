@@ -4,7 +4,7 @@ import { DEFAULT_CRITERIA, NEAR, feetLabel, formatINR, hasAmenity, matchSociety,
 import { searchSocieties } from '../src/search.js';
 
 const PROTOCOL = '2025-06-18';
-const SITE = 'https://flat-finder.pages.dev';
+const siteLink = (at, sid) => `${at.origin}/?city=${at.id}&open=${sid}`;
 const cache = new Map();
 
 async function city(env, origin, id) {
@@ -150,7 +150,7 @@ function nearbyOut(s) {
   return Object.fromEntries(Object.entries(s.nearby || {}).map(([k, v]) => [k, v?.m != null ? `${v.m} m${v.name ? ` (${v.name})` : ''}` : null]));
 }
 
-function summary(s, st, crit, d, allAmenities) {
+function summary(s, st, crit, d, allAmenities, at) {
   return {
     name: s.name, locality: s.locality, verdict: st, type: s.kind, status: s.status, possession: s.possession, developer: s.developer,
     rooms_checked: s.verified ? 'by hand' : s.ai_read ? 'AI-read floor plans' : 'no',
@@ -160,7 +160,7 @@ function summary(s, st, crit, d, allAmenities) {
     nearby: nearbyOut(s),
     amenities: allAmenities ? s.amenities : KEY_AMENITIES.filter((k) => hasAmenity(s, k)),
     towers: s.towers, units: s.units, acres: s.acres,
-    link: `${SITE}/?open=${s.id}`,
+    link: siteLink(at, s.id),
   };
 }
 
@@ -203,7 +203,7 @@ async function details(env, origin, id, sid) {
   return detailsCache.data[sid] || null;
 }
 
-function detail(s, extra) {
+function detail(s, extra, at) {
   return {
     name: s.name, developer: s.developer, locality: s.locality, lat: s.lat, lng: s.lng, type: s.kind, status: s.status, possession: s.possession, rera: s.rera_id,
     towers: s.towers, units: s.units, acres: s.acres, verified: s.verified, note: s.note,
@@ -217,13 +217,14 @@ function detail(s, extra) {
     ratings_by_category: extra?.ratings || null,
     reviews: (extra?.reviews || []).slice(0, 8).map((r) => ({ title: r.title, text: r.text, date: r.date, by: r.by })),
     description: extra?.description || null,
-    nearby: s.nearby, amenities: s.amenities, brochure: s.brochure_url, magicbricks: s.url, google_maps: s.gmaps, flat_finder: `${SITE}/?open=${s.id}`,
+    nearby: s.nearby, amenities: s.amenities, brochure: s.brochure_url, magicbricks: s.url, google_maps: s.gmaps, flat_finder: siteLink(at, s.id),
   };
 }
 
 async function callTool(name, args, env, origin) {
   const id = args.city || 'gurgaon';
   const data = await city(env, origin, id);
+  const at = { origin, id };
   if (name === 'search_societies' || name === 'breakdown') {
     const crit = criteria(args);
     const hits = filtered(data, args, crit);
@@ -257,7 +258,7 @@ async function callTool(name, args, env, origin) {
     const offset = Math.max(0, args.offset || 0), limit = Math.min(args.limit || 25, 200);
     return { city: data.city.name, total: hits.length, counts, offset, returned: Math.min(limit, Math.max(0, hits.length - offset)), has_more: offset + limit < hits.length,
       how_to_read: 'verdict: match = bedrooms read from floor plans and all pass, or no room filter was used; likely = rooms read so far pass; probable = plans unread, estimated from unit size. Societies without room data are left out under room filters. by_bhk prices: median of live listings with range and count, or "estimate" when there are none. A price with "flag" is what the listing says but our checks think it is a typo: say so, and prefer the estimate. nearby: distance to the closest place of each kind.',
-      results: hits.slice(offset, offset + limit).map(([s, st, d]) => summary(s, st, crit, d, args.include_all_amenities)) };
+      results: hits.slice(offset, offset + limit).map(([s, st, d]) => summary(s, st, crit, d, args.include_all_amenities, at)) };
   }
   if (name === 'list_localities') {
     const m = new Map();
@@ -275,11 +276,11 @@ async function callTool(name, args, env, origin) {
   const find = (n) => searchSocieties(data.societies, n, 1)[0];
   if (name === 'get_society') {
     const s = find(args.name);
-    return s ? detail(s, await details(env, origin, id, s.id)) : { error: `No society found for "${args.name}"` };
+    return s ? detail(s, await details(env, origin, id, s.id), at) : { error: `No society found for "${args.name}"` };
   }
   if (name === 'compare_societies') {
     const crit = { ...structuredClone(DEFAULT_CRITERIA), mode: args.mode || 'buy' };
-    return { societies: (args.names || []).slice(0, 10).map((n) => { const s = find(n); return s ? summary(s, s.verified ? 'verified' : 'portal data', crit, null, true) : { name: n, error: 'not found' }; }) };
+    return { societies: (args.names || []).slice(0, 10).map((n) => { const s = find(n); return s ? summary(s, s.verified ? 'verified' : 'portal data', crit, null, true, at) : { name: n, error: 'not found' }; }) };
   }
   throw new Error(`Unknown tool ${name}`);
 }

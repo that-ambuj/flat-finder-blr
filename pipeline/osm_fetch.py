@@ -14,10 +14,11 @@ CACHE = ROOT / "cache" / "osm"
 OUT = ROOT / "out"
 CITIES = json.loads((ROOT.parent / "data" / "cities.json").read_text())
 CITY = next((a for a in sys.argv[1:] if a in CITIES), "gurgaon")
-BBOX = tuple(CITIES[CITY]["bbox"])  # south, west, north, east
+BBOX = tuple((CITIES[CITY].get("coverage") or CITIES[CITY])["bbox"])  # south, west, north, east
 OUT = OUT / CITY
 CACHE = CACHE / CITY
 MIRRORS = [
+    "https://overpass.kumi.systems/api/interpreter",
     "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
     "https://overpass-api.de/api/interpreter",
     "https://overpass.private.coffee/api/interpreter",

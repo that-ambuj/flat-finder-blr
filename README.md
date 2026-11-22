@@ -69,7 +69,11 @@ cd ../web && npm install && npm run dev
 
 Tests: `cd pipeline && uv run --with pytest pytest` and `cd web && npx vitest run --root .. cli web/src`.
 
-Cities live in `data/cities.json`. Gurugram is built; Bengaluru and Mumbai are configured and need the pipeline run (see the skill, Job 2).
+Cities live in `data/cities.json`. Gurugram is built. Bengaluru is built for Electronic City only (`?city=bangalore`). Mumbai is configured and needs the pipeline run (see the skill, Job 2).
+
+A city can limit its coverage to part of the city with a `coverage` block: `localities` (Magicbricks locality names; only matching project pages are crawled) and `bbox` (the OSM fetch area and the map area). Remove the block to cover the whole city. `bounds` sets a map area wider than the OSM `bbox`.
+
+Set `FLAT_FINDER_SITE` to point the CLI at another deployment.
 
 Press `/` to search for a society. The Streets button switches to a street map with road and sector names.
 

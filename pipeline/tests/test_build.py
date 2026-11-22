@@ -1,3 +1,6 @@
+import json
+import pathlib
+
 import build_city
 import geo
 
@@ -65,3 +68,12 @@ def test_match_verified_needs_whole_name_and_sector():
     assert build_city.match_verified({"match": ["M3M Heights"], "sector": "65"}, ps)["mb_id"] == 2
     assert build_city.match_verified({"match": ["M3M St Andrews"], "sector": "65"}, ps)["mb_id"] == 4
     assert build_city.match_verified({"match": ["M3M Heights"], "sector": "65"}, ps, taken={2}) is None
+
+
+def test_within_bounds_uses_coverage_then_bounds_then_bbox():
+    cities = json.loads((pathlib.Path(build_city.ROOT).parent / "data" / "cities.json").read_text())
+    sohna = {"lat": 28.2837, "lng": 77.0653}
+    assert build_city.within_bounds([sohna], cities["gurgaon"]) == [sohna]
+    ecity = {"lat": 12.8452, "lng": 77.6602}
+    koramangala = {"lat": 12.9352, "lng": 77.6245}
+    assert build_city.within_bounds([ecity, koramangala, {"lat": None, "lng": None}], cities["bangalore"]) == [ecity]
