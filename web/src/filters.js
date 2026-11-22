@@ -20,6 +20,7 @@ export const DEFAULT_CRITERIA = {
   maxRent: null,    // rupees per month, renting
   amenities: [],    // amenity keys, see AMENITY_KEYS
   ready: false,     // only ready to move
+  byOwner: false,   // only societies with a listing posted by its owner (no broker), priced from those
 };
 
 // Amenity keys -> words that identify them in portal amenity names.
@@ -125,10 +126,11 @@ export function matchSociety(s, c) {
   if (c.kinds.length && !c.kinds.includes(s.kind)) return 'no';
   for (const key of c.near || []) if (!isNear(s, key)) return 'no';
   if (c.ready && !/ready/i.test(s.status || '')) return 'no';
+  if (c.byOwner && !priceFor(s, c.mode, c.bhk, true)) return 'no';
   const budget = c.mode === 'rent' ? c.maxRent : c.maxPrice;
   const floor = c.mode === 'rent' ? c.minRent : c.minPrice;
   if (budget || floor) {
-    const p = priceFor(s, c.mode, c.bhk);
+    const p = priceFor(s, c.mode, c.bhk, c.byOwner);
     if (p && budget && p.value > budget) return 'no';
     if (p && floor && p.value < floor) return 'no';
   }
@@ -156,16 +158,21 @@ export function feetLabel(ft) {
 
 // Cheapest price for the chosen BHKs: listing median first, our estimate otherwise. null when unknown.
 // Medians flagged as likely typos (p.flags) are skipped, so one mistyped listing cannot hide or promote a society.
-export function priceFor(s, mode, bhk = []) {
+export function priceFor(s, mode, bhk = [], byOwner = false) {
   let best = null;
   for (const [b, p] of Object.entries(s.prices || {})) {
     if (bhk.length && !bhk.includes(+b)) continue;
+    if (byOwner) {
+      const own = p[mode]?.owner;
+      if (own && (!best || own.median < best.value)) best = { value: own.median, estimated: false, bhk: +b, basis: null, n: own.n, byOwner: true };
+      continue;
+    }
     const real = p.flags?.[mode] ? null : p[mode]?.median;
     const est = p[`${mode}_est`]?.value;
     const v = real ?? est;
     if (v && (!best || v < best.value)) best = { value: v, estimated: real == null, bhk: +b, basis: real == null ? p[`${mode}_est`].basis : null, n: real == null ? null : p[mode]?.n };
   }
-  if (!best && mode === 'buy' && s.price_min && !bhk.length) best = { value: s.price_min, estimated: false, bhk: null, basis: 'builder price range' };
+  if (!best && !byOwner && mode === 'buy' && s.price_min && !bhk.length) best = { value: s.price_min, estimated: false, bhk: null, basis: 'builder price range' };
   return best;
 }
 

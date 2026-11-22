@@ -20,6 +20,7 @@ const HELP = `flatfinder: find housing societies that fit
   --amenity squash,pool  squash pool gym club tennis badminton jogging kids
   --type apartment       apartment, "builder floor", villa, plot (comma separated)
   --ready                ready to move only
+  --by-owner             only homes posted by the owner (no broker), priced from those listings
   --likely               also show "likely" (rooms read so far pass)
   --limit 30             rows to print
   --json                 print JSON
@@ -53,6 +54,7 @@ export function parseArgs(argv) {
     else if (a === '--amenity') o.crit.amenities = v().split(',');
     else if (a === '--type') o.crit.kinds = v().split(',');
     else if (a === '--ready') o.crit.ready = true;
+    else if (a === '--by-owner') o.crit.byOwner = true;
     else if (a === '--likely') o.likely = true;
     else if (a === '--limit') o.limit = +v();
     else if (a === '--json') o.json = true;
@@ -89,7 +91,7 @@ async function main() {
   console.log(`${rows.length} societies in ${city.city.name}${o.likely ? ' (including likely)' : ''}\n`);
   const table = rows.slice(0, o.limit).map(({ s, v }) => ({
     society: s.name.slice(0, 32), area: (s.locality || '').slice(0, 22), verdict: v + (s.verified ? '*' : ''),
-    'smallest bedroom': smallestRoom(s), [o.crit.mode === 'rent' ? 'rent from' : 'price from']: money(priceFor(s, o.crit.mode, o.crit.bhk), o.crit.mode), link: `${SITE}/?city=${o.city}&open=${s.id}`,
+    'smallest bedroom': smallestRoom(s), [o.crit.mode === 'rent' ? 'rent from' : 'price from']: money(priceFor(s, o.crit.mode, o.crit.bhk, o.crit.byOwner), o.crit.mode), link: `${SITE}/?city=${o.city}&open=${s.id}`,
   }));
   console.table(table);
   console.log('~ = our estimate from the rent-to-price ratio, not a listing.');

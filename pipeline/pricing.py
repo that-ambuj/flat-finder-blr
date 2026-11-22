@@ -26,7 +26,7 @@ def stats(values):
 
 
 def listing_stats(project):
-    """{bhk: {"buy": stats, "rent": stats, "psf": median price per sq ft}} from the sample listings."""
+    """{bhk: {"buy": stats, "rent": stats, "psf": median price per sq ft}} from the sample listings; stats["owner"] covers owner-posted ones."""
     out = defaultdict(dict)
     for kind, key in (("buy", "sale_listings"), ("rent", "rent_listings")):
         by = defaultdict(list)
@@ -34,7 +34,8 @@ def listing_stats(project):
             if l.get("bhk") and l.get("price"):
                 by[l["bhk"]].append(l)
         for bhk, ls in by.items():
-            out[bhk][kind] = stats(l["price"] for l in ls)
+            owner = stats(l["price"] for l in ls if l.get("by") == "owner")
+            out[bhk][kind] = {**stats(l["price"] for l in ls), **({"owner": owner} if owner else {})}
             if kind == "buy":
                 psf = [l["psf"] for l in ls if l.get("psf")]
                 if psf:

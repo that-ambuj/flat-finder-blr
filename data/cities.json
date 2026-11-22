@@ -1,6 +1,6 @@
 {
   "gurgaon": { "name": "Gurugram", "magicbricks": "gurgaon", "bbox": [28.33, 76.88, 28.55, 77.16], "bounds": [28.2, 76.7, 28.7, 77.3], "center": [77.065, 28.425], "zoom": 12.4 },
-  "bangalore": { "name": "Bengaluru", "magicbricks": "bangalore", "bbox": [12.80, 77.40, 13.20, 77.80], "center": [77.67, 12.845], "zoom": 13.2,
+  "bangalore": { "name": "Bengaluru", "mode": "rent", "magicbricks": "bangalore", "bbox": [12.80, 77.40, 13.20, 77.80], "center": [77.67, 12.845], "zoom": 13.2,
     "coverage": { "name": "Electronic City", "localities": ["Electronic City", "Electronics City", "Neeladri Nagar", "Hebbagodi", "Huskur", "Hosa Road", "Bommasandra"], "bbox": [12.80, 77.62, 12.89, 77.72] } },
   "mumbai": { "name": "Mumbai", "magicbricks": "mumbai", "bbox": [18.89, 72.77, 19.30, 73.05], "center": [72.88, 19.08], "zoom": 11.4 }
 }

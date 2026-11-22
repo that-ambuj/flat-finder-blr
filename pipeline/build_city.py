@@ -285,7 +285,7 @@ def main(city="gurgaon"):
     ai_plans = json.loads((vdir / f"{city}-ai.json").read_text())["plans"] if (vdir / f"{city}-ai.json").exists() else {}
     ocr_plans = json.loads((vdir / f"{city}-ocr.json").read_text())["plans"] if (vdir / f"{city}-ocr.json").exists() else {}
     by_sid = {s["id"]: s for s in societies}
-    for url in set(ai_plans) | set(ocr_plans):
+    for url in sorted(set(ai_plans) | set(ocr_plans)):
         o, j = ocr_plans.get(url, {}), ai_plans.get(url, {})
         s = by_sid.get(o.get("sid") or j.get("sid"))
         if not s or s.get("verified"):
@@ -441,13 +441,15 @@ def main(city="gurgaon"):
         events.extend(events_for(s, cfg["name"]))
 
     WEB.mkdir(parents=True, exist_ok=True)
-    doc = {"city": {"id": city, "name": cfg["name"], "center": cfg["center"], "zoom": cfg["zoom"]},
+    doc = {"city": {"id": city, "name": cfg["name"], "center": cfg["center"], "zoom": cfg["zoom"], "mode": cfg.get("mode", "buy")},
             "price_model": model,
             "room_model": room_model,
             "counts": {"listed": len(raw), "on_map": len(societies), "not_located": not_located,
                        "ai_read": sum(1 for s in societies if s.get("ai_read")),
                        "for_sale": sum(s["sale_count"] or 0 for s in societies), "for_rent": sum(s["rent_count"] or 0 for s in societies),
-                       "verified": sum(s["verified"] for s in societies)},
+                       "verified": sum(s["verified"] for s in societies),
+                       "sampled_listings": {k: sum((p.get(k) or {}).get("n", 0) for s in societies for p in s["prices"].values()) for k in ("buy", "rent")},
+                       "owner_listings": {k: sum(((p.get(k) or {}).get("owner") or {}).get("n", 0) for s in societies for p in s["prices"].values()) for k in ("buy", "rent")}},
             "coverage": (cfg.get("coverage") or {}).get("name"),
             "sources": ["Magicbricks project pages", "OpenStreetMap contributors"] + (["HRERA Gurugram"] if hrera else []) + ["Builder brochures (verified rows)"],
             "societies": societies, "events": events}

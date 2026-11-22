@@ -58,6 +58,21 @@ it('feetLabel', () => {
 
 import { formatINR, priceFor } from './filters.js';
 
+describe('posted by owner', () => {
+  const s = soc({ prices: { 2: { rent: { median: 40000, n: 3, owner: { median: 32000, n: 1 } } }, 3: { rent: { median: 50000, n: 2 }, rent_est: { value: 45000, basis: 'x' } } } });
+  it('prices from owner listings only, never estimates', () => {
+    expect(priceFor(s, 'rent', [], true)).toMatchObject({ value: 32000, bhk: 2, byOwner: true });
+    expect(priceFor(s, 'rent', [3], true)).toBeNull();
+    expect(priceFor(s, 'buy', [], true)).toBeNull();
+  });
+  it('drops societies without an owner listing and applies budgets to owner prices', () => {
+    expect(matchSociety(s, crit({ mode: 'rent', byOwner: true }))).toBe('match');
+    expect(matchSociety(s, crit({ mode: 'rent', byOwner: true, bhk: [3] }))).toBe('no');
+    expect(matchSociety(s, crit({ mode: 'rent', byOwner: true, maxRent: 35000 }))).toBe('match');
+    expect(matchSociety(s, crit({ mode: 'rent', byOwner: true, maxRent: 30000 }))).toBe('no');
+  });
+});
+
 describe('buy and rent', () => {
   const s = soc({ prices: { 3: { buy: { median: 3e7, n: 4 }, rent: { median: 70000 } }, 4: { buy_est: { value: 4e7, basis: 'x' }, rent_est: { value: 80000, basis: 'y' } } } });
   it('uses listing medians before estimates, cheapest BHK first', () => {

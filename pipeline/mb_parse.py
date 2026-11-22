@@ -161,7 +161,8 @@ def _listing(r):
     except ValueError:
         bhk = None
     return {"bhk": bhk, "price": _num(r.get("price")), "sqft": _num(r.get("caSqFt")), "psf": _num(r.get("sqFtPrice")),
-            "furnished": r.get("furnishedD"), "floor": r.get("floorNo"), "posted": (r.get("postDateT") or "")[:10]}
+            "furnished": r.get("furnishedD"), "floor": r.get("floorNo"), "posted": (r.get("postDateT") or "")[:10],
+            "by": (r.get("userType") or "").lower() or None}
 
 
 RATING_KEYS = {"waterRt": "water", "electricityRt": "power", "backupRt": "power backup", "securityRt": "security",
