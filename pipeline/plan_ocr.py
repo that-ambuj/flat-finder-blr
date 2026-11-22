@@ -129,15 +129,35 @@ def judge(r, jev):
     return r
 
 
+def download_missing(urls):
+    """Fetch plan images not yet cached. Runs in the main process: network and sips calls hang in the OCR workers."""
+    from concurrent.futures import ThreadPoolExecutor
+    from jev_reader import fetch_image
+
+    def one(u):
+        try:
+            fetch_image(u)
+            return True
+        except Exception as e:
+            print("  download failed", u, str(e)[:80], flush=True)
+            return False
+
+    missing = [u for u in urls if not (CACHE / (hashlib.sha1(u.encode()).hexdigest() + ".jpg")).exists()]
+    with ThreadPoolExecutor(max_workers=6) as ex:
+        print("downloaded", sum(ex.map(one, missing)), "of", len(missing), "missing plan images", flush=True)
+
+
 def main(city="gurgaon"):
     data = json.loads((ROOT.parent / "web" / "public" / "data" / f"{city}.json").read_text())
-    jev = json.loads((ROOT.parent / "data" / "verified" / f"{city}-ai.json").read_text())["plans"]
+    jev_file = ROOT.parent / "data" / "verified" / f"{city}-ai.json"
+    jev = json.loads(jev_file.read_text())["plans"] if jev_file.exists() else {}
     jobs, sid_of = [], {}
     for s in data["societies"]:
         for b, urls in (s.get("plan_links") or {}).items():
             for u in urls[:3]:
                 jobs.append((u, b))
                 sid_of[u] = s["id"]
+    download_missing([u for u, _ in jobs])
     out = {}
     with ProcessPoolExecutor(max_workers=6) as ex:
         for i, (u, r) in enumerate(ex.map(read_image, jobs, chunksize=8), 1):

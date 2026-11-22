@@ -13,6 +13,14 @@ def test_listing_stats_median_per_bhk():
     assert st[3]["psf"] == 11000 and st[3]["rent"]["median"] == 60000 and "rent" not in st[2]
 
 
+def test_listing_stats_keeps_owner_posted_subset():
+    p = {"rent_listings": [{"bhk": 2, "price": 30000, "by": "owner"}, {"bhk": 2, "price": 40000, "by": "agent"},
+                           {"bhk": 2, "price": 34000, "by": "owner"}, {"bhk": 3, "price": 50000, "by": "agent"}]}
+    st = pricing.listing_stats(p)
+    assert st[2]["rent"]["n"] == 3 and st[2]["rent"]["owner"] == {"median": 32000, "min": 30000, "max": 34000, "n": 2}
+    assert "owner" not in st[3]["rent"]
+
+
 def test_yield_model_drops_mistakes_and_uses_locality():
     socs = [soc("Sector 62", {3: {"buy": {"median": 3e7}, "rent": {"median": 75000}}}) for _ in range(4)]
     socs.append(soc("Sector 62", {3: {"buy": {"median": 3e7}, "rent": {"median": 900000}}}))  # yearly typed as monthly

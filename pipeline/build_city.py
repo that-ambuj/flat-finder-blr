@@ -21,7 +21,7 @@ import verified
 ROOT = pathlib.Path(__file__).parent
 OUT = ROOT / "out"
 WEB = ROOT.parent / "web" / "public" / "data"
-GENERIC = {"the", "of", "at", "in", "sector", "gurgaon", "gurugram", "residency", "residences", "homes",
+GENERIC = {"the", "of", "at", "in", "sector", "gurgaon", "gurugram", "bangalore", "bengaluru", "residency", "residences", "homes",
            "apartments", "apartment", "towers", "tower", "heights", "city", "phase", "park", "estate",
            "floors", "society", "cghs", "group", "housing", "and", "by", "new", "greens", "green", "plaza"}
 TOWER_H = 55.0  # visual default height (m) for generated apartment towers; shapes are not data
@@ -155,11 +155,11 @@ def match_verified(v, projects, taken=()):
     return best
 
 
-def events_for(s):
+def events_for(s, city_name):
     ev = []
     sid = s["id"]
     src = s.get("url")
-    ev.append({"sid": sid, "step": "Located on map", "finding": f"{s['locality'] or 'Gurgaon'} · {s['lat']:.4f}, {s['lng']:.4f}", "url": src})
+    ev.append({"sid": sid, "step": "Located on map", "finding": f"{s['locality'] or city_name} · {s['lat']:.4f}, {s['lng']:.4f}", "url": src})
     bits = [f"{int(s['towers'])} towers" if s.get("towers") else None, f"{int(s['units']):,} units" if s.get("units") else None,
             f"{s['acres']} acres" if s.get("acres") else None]
     if any(bits):
@@ -222,11 +222,17 @@ def shapes_for(s, area, bld_grid, sid_seed):
     return feats, shape
 
 
+def within_bounds(projects, cfg):
+    extent = cfg.get("coverage") or cfg
+    south, west, north, east = extent.get("bounds") or extent["bbox"]
+    return [p for p in projects if p.get("lat") and p.get("lng") and south < p["lat"] < north and west < p["lng"] < east]
+
+
 def main(city="gurgaon"):
     cfg = json.loads((ROOT.parent / "data" / "cities.json").read_text())[city]
     out = OUT / city
     raw = json.loads((out / "mb_projects.json").read_text())
-    located = [p for p in raw if p.get("lat") and p.get("lng") and 28.2 < p["lat"] < 28.7 and 76.7 < p["lng"] < 77.3]
+    located = within_bounds(raw, cfg)
     not_located = len(raw) - len(located)
     projects = dedupe(located)
     areas = json.loads((out / "osm_areas.geojson").read_text())["features"]
@@ -279,7 +285,7 @@ def main(city="gurgaon"):
     ai_plans = json.loads((vdir / f"{city}-ai.json").read_text())["plans"] if (vdir / f"{city}-ai.json").exists() else {}
     ocr_plans = json.loads((vdir / f"{city}-ocr.json").read_text())["plans"] if (vdir / f"{city}-ocr.json").exists() else {}
     by_sid = {s["id"]: s for s in societies}
-    for url in set(ai_plans) | set(ocr_plans):
+    for url in sorted(set(ai_plans) | set(ocr_plans)):
         o, j = ocr_plans.get(url, {}), ai_plans.get(url, {})
         s = by_sid.get(o.get("sid") or j.get("sid"))
         if not s or s.get("verified"):
@@ -432,17 +438,20 @@ def main(city="gurgaon"):
         f, shape = shapes_for(s, area, bld_grid, i)
         s["shape"] = shape
         shapes.extend(f)
-        events.extend(events_for(s))
+        events.extend(events_for(s, cfg["name"]))
 
     WEB.mkdir(parents=True, exist_ok=True)
-    doc = {"city": {"id": city, "name": cfg["name"], "center": cfg["center"], "zoom": cfg["zoom"]},
+    doc = {"city": {"id": city, "name": cfg["name"], "center": cfg["center"], "zoom": cfg["zoom"], "mode": cfg.get("mode", "buy")},
             "price_model": model,
             "room_model": room_model,
             "counts": {"listed": len(raw), "on_map": len(societies), "not_located": not_located,
                        "ai_read": sum(1 for s in societies if s.get("ai_read")),
                        "for_sale": sum(s["sale_count"] or 0 for s in societies), "for_rent": sum(s["rent_count"] or 0 for s in societies),
-                       "verified": sum(s["verified"] for s in societies)},
-            "sources": ["Magicbricks project pages", "OpenStreetMap contributors", "HRERA Gurugram", "Builder brochures (verified rows)"],
+                       "verified": sum(s["verified"] for s in societies),
+                       "sampled_listings": {k: sum((p.get(k) or {}).get("n", 0) for s in societies for p in s["prices"].values()) for k in ("buy", "rent")},
+                       "owner_listings": {k: sum(((p.get(k) or {}).get("owner") or {}).get("n", 0) for s in societies for p in s["prices"].values()) for k in ("buy", "rent")}},
+            "coverage": (cfg.get("coverage") or {}).get("name"),
+            "sources": ["Magicbricks project pages", "OpenStreetMap contributors"] + (["HRERA Gurugram"] if hrera else []) + ["Builder brochures (verified rows)"],
             "societies": societies, "events": events}
     details = {}
     for s in societies:  # heavy per-society text, loaded only when a card opens

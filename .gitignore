@@ -10,3 +10,4 @@ __pycache__/
 
 pipeline/cache_*.log
 data/verified/*-ai.json.bak
+pipeline/out/bangalore/mb_index.json

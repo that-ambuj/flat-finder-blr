@@ -69,7 +69,15 @@ cd ../web && npm install && npm run dev
 
 Tests: `cd pipeline && uv run --with pytest pytest` and `cd web && npx vitest run --root .. cli web/src`.
 
-Cities live in `data/cities.json`. Gurugram is built; Bengaluru and Mumbai are configured and need the pipeline run (see the skill, Job 2).
+Cities live in `data/cities.json`. Gurugram is built. Bengaluru is built for Electronic City only (`?city=bangalore`). Mumbai is configured and needs the pipeline run (see the skill, Job 2).
+
+A city can limit its coverage to part of the city with a `coverage` block: `localities` (Magicbricks locality names; only matching project pages are crawled) and `bbox` (the OSM fetch area and the map area). Remove the block to cover the whole city. `bounds` sets a map area wider than the OSM `bbox`.
+
+`mode` (`buy` or `rent`) sets which the site shows first. Bengaluru opens on rent.
+
+Each sampled listing keeps who posted it (`by`: owner, agent or builder, from Magicbricks). Price cells carry an `owner` subset, and the "Posted by owner (no broker)" filter (`--by-owner` in the CLI, `posted_by_owner` in the connector) keeps only societies with an owner listing and prices them from those listings. A city built before this field has no owner data, and the site hides the filter there.
+
+Set `FLAT_FINDER_SITE` to point the CLI at another deployment.
 
 Press `/` to search for a society. The Streets button switches to a street map with road and sector names.
 

@@ -45,24 +45,36 @@ def fetch(url):
 
 
 def crawl_list():
+    from concurrent.futures import ThreadPoolExecutor
+
     first = fetch(LIST_URL.format(1))
     total = mb_parse.parse_total(first)
     pages = -(-total // 20)
-    projects = {}
-    for n in range(1, pages + 1):
+
+    def one(n):
         html = fetch(LIST_URL.format(n))
-        if not html:
-            continue
-        for c in mb_parse.parse_list_page(html):
-            projects[c["psmid"]] = mb_parse.card_to_project(c)
-        print(f"list {n}/{pages}: {len(projects)} projects", flush=True)
+        return [mb_parse.card_to_project(c) for c in mb_parse.parse_list_page(html)] if html else []
+
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        projects = {}
+        for n, cards in enumerate(ex.map(one, range(1, pages + 1)), 1):
+            projects.update({c["mb_id"]: c for c in cards})
+            if n % 50 == 0 or n == pages:
+                print(f"list {n}/{pages}: {len(projects)} projects", flush=True)
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "mb_index.json").write_text(json.dumps(list(projects.values()), indent=0))
     print("total reported", total, "collected", len(projects))
 
 
+def in_coverage(project, cfg):
+    names = (cfg.get("coverage") or {}).get("localities")
+    locality = (project.get("locality") or "").lower()
+    return not names or any(n.lower() in locality for n in names)
+
+
 def crawl_projects():
-    index = json.loads((OUT / "mb_index.json").read_text())
+    index = [p for p in json.loads((OUT / "mb_index.json").read_text()) if in_coverage(p, CFG)]
+    print("projects in coverage", len(index), flush=True)
     from concurrent.futures import ThreadPoolExecutor
 
     def one(p):
