@@ -1,8 +1,7 @@
 """Merge Magicbricks projects, OSM shapes and verified research into the web data files.
 
 usage: python build_city.py <city>  -> web/public/data/<city>.json, <city>-shapes.geojson, cities.json
-       python build_city.py <city> --with-nobroker  -> the same files in web/local-data/ (gitignored, dev only),
-       with out/<city>/nb_listings.json merged into rent listings. Never deploy or commit that output.
+Rent listings in out/<city>/nb_listings.json (nb_crawl.py), when present, are merged in with source "NoBroker".
 """
 import json
 import math
@@ -23,7 +22,6 @@ import verified
 ROOT = pathlib.Path(__file__).parent
 OUT = ROOT / "out"
 WEB = ROOT.parent / "web" / "public" / "data"
-LOCAL_WEB = ROOT.parent / "web" / "local-data"
 NB_KEEP = ("bhk", "price", "deposit", "sqft", "furnished", "posted", "url", "by", "source")
 GENERIC = {"the", "of", "at", "in", "sector", "gurgaon", "gurugram", "bangalore", "bengaluru", "residency", "residences", "homes",
            "apartments", "apartment", "towers", "tower", "heights", "city", "phase", "park", "estate",
@@ -267,17 +265,19 @@ def within_bounds(projects, cfg):
     return [p for p in projects if p.get("lat") and p.get("lng") and south < p["lat"] < north and west < p["lng"] < east]
 
 
-def main(city="gurgaon", with_nobroker=False):
+def main(city="gurgaon"):
     cfg = json.loads((ROOT.parent / "data" / "cities.json").read_text())[city]
     out = OUT / city
     raw = json.loads((out / "mb_projects.json").read_text())
     located = within_bounds(raw, cfg)
     not_located = len(raw) - len(located)
     projects = dedupe(located)
-    nb_matched = 0
+    nb_matched, nb_crawled = 0, None
+    with_nobroker = (out / "nb_listings.json").exists()
     if with_nobroker:
         nb = json.loads((out / "nb_listings.json").read_text())
         nb_matched, nb_unmatched = merge_nobroker(projects, nb["listings"])
+        nb_crawled = nb["crawled"]
         print(f"NoBroker listings crawled {nb['crawled']}: matched {nb_matched}, unmatched {nb_unmatched}")
     areas = json.loads((out / "osm_areas.geojson").read_text())["features"]
     area_grid = Grid(areas, lambda a: geo.centroid(a["geometry"]["coordinates"][0]))
@@ -485,8 +485,7 @@ def main(city="gurgaon", with_nobroker=False):
         shapes.extend(f)
         events.extend(events_for(s, cfg["name"]))
 
-    web = LOCAL_WEB if with_nobroker else WEB
-    web.mkdir(parents=True, exist_ok=True)
+    WEB.mkdir(parents=True, exist_ok=True)
     doc = {"city": {"id": city, "name": cfg["name"], "center": cfg["center"], "zoom": cfg["zoom"], "mode": cfg.get("mode", "buy"),
                     **({"nobroker": cfg["nobroker"]} if cfg.get("nobroker") else {})},
             "price_model": model,
@@ -499,26 +498,25 @@ def main(city="gurgaon", with_nobroker=False):
                        "owner_listings": {k: sum(((p.get(k) or {}).get("owner") or {}).get("n", 0) for s in societies for p in s["prices"].values()) for k in ("buy", "rent")},
                        **({"nobroker_listings": nb_matched} if with_nobroker else {})},
             "coverage": (cfg.get("coverage") or {}).get("name"),
-            "sources": ["Magicbricks project pages", "OpenStreetMap contributors"] + (["HRERA Gurugram"] if hrera else []) + ["Builder brochures (verified rows)"] + (["NoBroker (local only)"] if with_nobroker else []),
+            "sources": ["Magicbricks project pages", "OpenStreetMap contributors"] + (["HRERA Gurugram"] if hrera else []) + ["Builder brochures (verified rows)"] + ([f"NoBroker rent listings, posted by owners (crawled {nb_crawled})"] if with_nobroker else []),
             "societies": societies, "events": events}
     details = {}
     for s in societies:  # heavy per-society text, loaded only when a card opens
         details[s["id"]] = {k: s.pop(k) for k in ("reviews", "description", "trend", "ratings", "images")}
-    (web / f"{city}.json").write_text(json.dumps(doc, separators=(",", ":")))
-    (web / f"{city}-details.json").write_text(json.dumps(details, separators=(",", ":")))
+    (WEB / f"{city}.json").write_text(json.dumps(doc, separators=(",", ":")))
+    (WEB / f"{city}-details.json").write_text(json.dumps(details, separators=(",", ":")))
     for s in societies:
         s.update(details[s["id"]])
-    write_csv(web / f"{city}-societies.csv", web / f"{city}-units.csv", societies)
+    write_csv(WEB / f"{city}-societies.csv", WEB / f"{city}-units.csv", societies)
     for f in shapes:
         f["geometry"]["coordinates"] = [[[round(x, 5), round(y, 5)] for x, y in r] for r in f["geometry"]["coordinates"]]
         if "h" in f["properties"]:
             f["properties"]["h"] = round(f["properties"]["h"])
-    (web / f"{city}-shapes.geojson").write_text(json.dumps({"type": "FeatureCollection", "features": shapes}, separators=(",", ":")))
+    (WEB / f"{city}-shapes.geojson").write_text(json.dumps({"type": "FeatureCollection", "features": shapes}, separators=(",", ":")))
     from collections import Counter
     built = sorted(p.stem for p in WEB.glob("*.json") if p.stem != "cities")
     all_cfg = json.loads((ROOT.parent / "data" / "cities.json").read_text())
-    if not with_nobroker:
-        (WEB / "cities.json").write_text(json.dumps({c: {"name": all_cfg[c]["name"]} for c in built if c in all_cfg}))
+    (WEB / "cities.json").write_text(json.dumps({c: {"name": all_cfg[c]["name"]} for c in built if c in all_cfg}))
     print(doc["counts"], Counter(s["shape"] for s in societies), Counter(s["kind"] for s in societies), "features", len(shapes))
 
 
@@ -558,5 +556,4 @@ def write_csv(soc_path, unit_path, societies):
 
 
 if __name__ == "__main__":
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    main(args[0] if args else "gurgaon", with_nobroker="--with-nobroker" in sys.argv)
+    main(sys.argv[1] if len(sys.argv) > 1 else "gurgaon")

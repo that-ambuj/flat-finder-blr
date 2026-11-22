@@ -89,4 +89,4 @@ Verified rows live in `data/verified/<city>.json`. Each unit type lists its bedr
 
 ## Sources
 
-Magicbricks project pages (listing facts, live sale and rent listings, resident ratings and reviews), OpenStreetMap contributors (outlines, ODbL), Esri World Imagery (basemap), OpenFreeMap (roads and city buildings), HRERA Gurugram and builder brochures (verified rows).
+Magicbricks project pages (listing facts, live sale and rent listings, resident ratings and reviews), NoBroker rent search pages (owner-posted rent listings, Bengaluru), OpenStreetMap contributors (outlines, ODbL), Esri World Imagery (basemap), OpenFreeMap (roads and city buildings), HRERA Gurugram and builder brochures (verified rows).

@@ -34,15 +34,12 @@ let data, byId, map, feed, selected = null, states = new Map(), tourTimer = null
 let myList = [], allAmenities = [];
 const highlights = { glow: true, bounds: true, labels: true, ...store.get('ff-highlights', {}) };
 
-// Dev only: ?local=1 reads web/local-data. That data must not ship.
-const DATA = import.meta.env.DEV && params.has('local') ? '/local-data' : '/data';
-
 async function boot() {
   const cities = await fetch('/data/cities.json').then((r) => r.json()).catch(() => ({ gurgaon: { name: 'Gurugram' } }));
   cityId = cities[params.get('city')] ? params.get('city') : 'gurgaon';
   const [city, shapes] = await Promise.all([
-    fetch(`${DATA}/${cityId}.json`).then((r) => r.json()),
-    fetch(`${DATA}/${cityId}-shapes.geojson`).then((r) => r.json()),
+    fetch(`/data/${cityId}.json`).then((r) => r.json()),
+    fetch(`/data/${cityId}-shapes.geojson`).then((r) => r.json()),
   ]);
   data = city;
   crit.mode = city.city.mode || crit.mode;
@@ -59,10 +56,10 @@ async function boot() {
 
   myList = params.get('list') ? params.get('list').split(',').filter((id) => byId.has(id)) : store.get(`ff-list-${cityId}`, []).filter((id) => byId.has(id));
   const c = city.counts, m = city.price_model || {}, rated = city.societies.filter((s) => s.rating).length;
-  $('note').textContent = `${c.on_map.toLocaleString()} societies · ${(c.for_sale || 0).toLocaleString()} homes for sale, ${(c.for_rent || 0).toLocaleString()} for rent on Magicbricks · ${c.verified} verified from brochures and HRERA plans`;
-  $('about-prices').innerHTML = `Prices and rents are medians of live Magicbricks listings. <b>⚠</b> marks a listing price our checks think is a typo (far from the same home nearby, or rent and price that cannot both be right): it is shown as listed but not used for filters. <b>~</b> marks our estimate: rent is about ${((m.city_yield || 0.025) * 100).toFixed(1)}% of the price per year here (measured on ${m.pairs || 0} society and BHK pairs, correlation ${m.log_price_rent_correlation ?? 'n/a'}). "Probably fits" uses a cautious bedroom size estimated from unit size (${city.room_model?.n || 0} verified unit types). Resident ratings exist for ${rated.toLocaleString()} societies.`;
-  $('dl-all').href = `${DATA}/${cityId}-societies.csv`;
-  $('dl-units').href = `${DATA}/${cityId}-units.csv`;
+  $('note').textContent = `${c.on_map.toLocaleString()} societies · ${(c.for_sale || 0).toLocaleString()} homes for sale, ${(c.for_rent || 0).toLocaleString()} for rent on Magicbricks · ${c.verified} verified from brochures and HRERA plans${c.nobroker_listings ? ` · ${c.nobroker_listings.toLocaleString()} NoBroker rent listings` : ''}`;
+  $('about-prices').innerHTML = `Prices and rents are medians of live Magicbricks listings${c.nobroker_listings ? ` and ${c.nobroker_listings.toLocaleString()} owner-posted NoBroker rent listings` : ''}. <b>⚠</b> marks a listing price our checks think is a typo (far from the same home nearby, or rent and price that cannot both be right): it is shown as listed but not used for filters. <b>~</b> marks our estimate: rent is about ${((m.city_yield || 0.025) * 100).toFixed(1)}% of the price per year here (measured on ${m.pairs || 0} society and BHK pairs, correlation ${m.log_price_rent_correlation ?? 'n/a'}). "Probably fits" uses a cautious bedroom size estimated from unit size (${city.room_model?.n || 0} verified unit types). Resident ratings exist for ${rated.toLocaleString()} societies.`;
+  $('dl-all').href = `/data/${cityId}-societies.csv`;
+  $('dl-units').href = `/data/${cityId}-units.csv`;
   $('dl-results').onclick = exportResults;
 
   feed = createFeed($('feed'), $('log-mode'), { events: city.events, byId });
@@ -459,7 +456,7 @@ function renderCard(s) {
 
 let detailsPromise = null;
 function loadDetails() {
-  detailsPromise ||= fetch(`${DATA}/${cityId}-details.json`).then((r) => r.json()).then((d) => (details = d)).catch(() => (details = {}));
+  detailsPromise ||= fetch(`/data/${cityId}-details.json`).then((r) => r.json()).then((d) => (details = d)).catch(() => (details = {}));
   return detailsPromise;
 }
 
